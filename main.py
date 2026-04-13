@@ -105,6 +105,11 @@ def process_signal(event: Event):
 # -----------------------------
 @app.post("/analyze")
 async def analyze_event(event: Event):
+    if not client:
+        return {
+            "error": "OpenAI API key not configured"
+        }
+
     messages = [
         {"role": "system", "content": get_unicorn_prompt()},
         {"role": "user", "content": str(event.dict())}
