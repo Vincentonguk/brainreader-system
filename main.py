@@ -3,12 +3,14 @@ from pydantic import BaseModel
 from openai import OpenAI
 from config.unicorn import get_unicorn_prompt
 import json
+import os
 
 app = FastAPI()
 
-client = OpenAI()
+# Safe OpenAI init
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# In-memory storage (temporary)
+# In-memory storage
 events = []
 
 
@@ -27,6 +29,25 @@ class StateResponse(BaseModel):
     status: str
     total_events: int
     system_mode: str
+
+
+# -----------------------------
+# ROOT (Render needs this)
+# -----------------------------
+@app.get("/")
+def root():
+    return {
+        "system": "BrainReader API",
+        "status": "running"
+    }
+
+
+# -----------------------------
+# HEALTH CHECK
+# -----------------------------
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 
 # -----------------------------
@@ -56,7 +77,30 @@ def get_state():
 
 
 # -----------------------------
-# ANALYSIS (AI)
+# LOCAL INTERPRETATION (NO AI)
+# -----------------------------
+def interpret_signal(signal: float):
+    if signal < 20:
+        return "ACTIVE THOUGHT DETECTED"
+    else:
+        return "RESTING STATE"
+
+
+# -----------------------------
+# QUICK PROCESS (FAST)
+# -----------------------------
+@app.post("/process")
+def process_signal(event: Event):
+    state = interpret_signal(event.signal)
+
+    return {
+        "signal": event.signal,
+        "state": state
+    }
+
+
+# -----------------------------
+# AI ANALYSIS
 # -----------------------------
 @app.post("/analyze")
 async def analyze_event(event: Event):
@@ -71,19 +115,13 @@ async def analyze_event(event: Event):
             messages=messages
         )
 
-        # Try to convert AI response into real JSON
+        content = response.choices[0].message.content
+
         try:
-            content = response.choices[0].message.content
             parsed = json.loads(content)
-
-            return {
-                "analysis": parsed
-            }
-
+            return {"analysis": parsed}
         except:
-            return {
-                "analysis": response.choices[0].message.content
-            }
+            return {"analysis": content}
 
     except Exception as e:
         return {
