@@ -8,7 +8,8 @@ import os
 app = FastAPI()
 
 # Safe OpenAI init
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI(api_key=api_key) if api_key else None
 
 # In-memory storage
 events = []
